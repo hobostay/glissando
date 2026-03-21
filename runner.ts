@@ -1,0 +1,31 @@
+#!/usr/bin/env npx tsx
+/**
+ * Universal build runner — imports slides.ts from the given path,
+ * calls build(), and saves to output.pptx.
+ *
+ * Usage: npx tsx runner.ts <path-to-deck-folder>
+ */
+
+import { resolve, join } from "path";
+
+const deckPath = process.argv[2];
+if (!deckPath) {
+  console.error("Usage: npx tsx runner.ts <path-to-deck-folder>");
+  process.exit(1);
+}
+
+const absPath = resolve(deckPath);
+const slidesFile = join(absPath, "slides.ts");
+
+const mod = await import(slidesFile);
+const build = mod.default ?? mod.build;
+
+if (typeof build !== "function") {
+  console.error("Error: slides.ts must export a default function or named 'build' function");
+  process.exit(1);
+}
+
+const deck = await build();
+const outputPath = join(absPath, "output.pptx");
+await deck.save(outputPath);
+console.log(`Built: ${outputPath}`);

@@ -1,0 +1,13 @@
+node_modules/
+dist/
+*.pptx
+*.pdf
+.DS_Store
+output/
+
+# Font binaries (commercial — not distributable)
+**/*.otf
+**/*.ttf
+**/*.OTF
+**/*.TTF
+**/fonts/*.zip
