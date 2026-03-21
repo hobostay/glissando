@@ -4,7 +4,7 @@
  * Demonstrates switching font presets.
  * Change the import below to try different typography.
  *
- * Build:  ./build.sh examples/example2-macos
+ * Build:  ./build.sh examples/mimic-claude-macos
  */
 
 import { Deck } from "../../src/index.js";
