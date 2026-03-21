@@ -3,7 +3,7 @@
  *
  * Based on https://platform.claude.com/docs visual design:
  * - Warm off-whites, near-black text
- * - Terracotta accent (#D97757)
+ * - Terracotta accent (#DA7756)
  * - DM Serif Display / Inter / JetBrains Mono font stack (free defaults)
  * - Tiempos Headline / Styrene A available as premium upgrades
  */
@@ -14,22 +14,22 @@ export const config: ThemeConfig = {
   name: "claude-doc",
 
   colors: {
-    bgPrimary:      "FFFFFF",
-    bgDark:         "141413",
-    bgAccent:       "F9F8F5",
-    bgCard:         "EDEBE5",
+    bgPrimary:      "F4F3EE",    // Cream "Pampas" — page background
+    bgDark:         "0D0D0D",    // Black — title/closing slides
+    bgAccent:       "F4F3EE",    // Cream — section dividers
+    bgCard:         "FFFFFF",    // White — cards, chat bubbles
 
-    text:           "141413",
-    textSecondary:  "3B3B39",
-    textMuted:      "706E6B",
-    textOnDark:     "F9F8F5",
-    textOnDarkMuted:"99958F",
+    text:           "0D0D0D",    // Black — headings, primary text
+    textSecondary:  "3B3B39",    // Dark grey — body text
+    textMuted:      "B1ADA1",    // Cloudy — captions, borders
+    textOnDark:     "F4F3EE",    // Cream — text on dark backgrounds
+    textOnDarkMuted:"B1ADA1",    // Cloudy — muted text on dark
 
-    accent:         "D97757",
-    accentBlue:     "2D74C9",
+    accent:         "DA7756",    // Terra cotta — primary accent, CTAs
+    accentBlue:     "2D74C9",    // Blue — links, highlights
 
-    codeBg:         "282C34",
-    codeText:       "ABB2BF",
+    codeBg:         "282C34",    // One Dark bg
+    codeText:       "ABB2BF",    // One Dark text
   },
 
   // Free defaults (auto-installed). To use the premium Anthropic fonts,
@@ -62,5 +62,18 @@ export const config: ThemeConfig = {
     marginRight:   0.8,
     marginTop:     0.6,
     marginBottom:  0.5,
+  },
+
+  // One Dark code style (default)
+  codeStyle: {
+    bg:       "282C34",
+    text:     "ABB2BF",
+    keyword:  "C678DD",   // Purple
+    string:   "98C379",   // Green
+    comment:  "5C6370",   // Grey
+    number:   "D19A66",   // Orange
+    function: "61AEEE",   // Blue
+    operator: "56B6C2",   // Cyan
+    label:    "5C6370",   // Grey
   },
 };

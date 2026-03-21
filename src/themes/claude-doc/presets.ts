@@ -12,7 +12,7 @@
  *   claudeDoc.config.sizes = macosNative.sizes;
  */
 
-import type { ThemeFonts, ThemeSizes } from "../../types.js";
+import type { ThemeFonts, ThemeSizes, CodeStyle } from "../../types.js";
 
 export interface FontPreset {
   name: string;
@@ -20,6 +20,7 @@ export interface FontPreset {
   installNote: string;
   fonts: ThemeFonts;
   sizes: ThemeSizes;
+  codeStyle?: CodeStyle;
 }
 
 // ---------------------------------------------------------------------------
@@ -49,6 +50,21 @@ export const macosNative: FontPreset = {
     small:        14,   // Iowan Old Style — table content
     code:         13,   // Menlo
     caption:      13,   // Avenir Next Medium, captions/labels
+  },
+
+  // Light terminal — white bg, grey border, syntax highlighting
+  codeStyle: {
+    bg:       "FFFFFF",
+    text:     "1a1a1a",
+    border:   "B1ADA1",
+    borderRadius: 0.08,
+    keyword:  "8839EF",   // Purple — def, return, import, const, class
+    string:   "1E6F5C",   // Teal — "hello", 'world'
+    comment:  "9CA3AF",   // Grey — # comment, // comment
+    number:   "C2410C",   // Warm orange — 42, 3.14
+    function: "2563EB",   // Blue — function names
+    operator: "5C6370",   // Dim grey — =, +, :, etc.
+    label:    "9CA3AF",   // Language label color
   },
 };
 

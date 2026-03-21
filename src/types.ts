@@ -59,12 +59,27 @@ export interface ThemeSpacing {
   slideHeight: number;    // inches
 }
 
+export interface CodeStyle {
+  bg: string;           // Code block background
+  text: string;         // Default text color
+  border?: string;      // Border color (if set, draws a border)
+  borderRadius?: number;// Corner radius in inches
+  keyword: string;      // Language keywords (def, return, import, const, etc.)
+  string: string;       // String literals
+  comment: string;      // Comments
+  number: string;       // Numeric literals
+  function: string;     // Function/method names
+  operator: string;     // Operators and punctuation
+  label: string;        // Language label color
+}
+
 export interface ThemeConfig {
   name: string;
   colors: ThemeColors;
   fonts: ThemeFonts;
   sizes: ThemeSizes;
   spacing: ThemeSpacing;
+  codeStyle: CodeStyle;
 }
 
 // ---------------------------------------------------------------------------
@@ -151,6 +166,20 @@ export interface CaptionProps {
   w: number;
 }
 
+export type CalloutVariant = "card" | "code" | "info" | "warning" | "accent";
+
+export interface CalloutBlockProps {
+  variant: CalloutVariant;
+  x: number;
+  y: number;
+  w: number;
+  h?: number;           // auto-sizes to content if omitted
+  title?: string;
+  body?: string;
+  bullets?: string[];
+  icon?: string;        // optional leading icon/emoji
+}
+
 // ---------------------------------------------------------------------------
 // Components — functions that render elements onto a slide
 // ---------------------------------------------------------------------------
@@ -165,6 +194,7 @@ export interface ThemeComponents {
   quoteBox: (slide: PptxGenJS.Slide, props: QuoteBoxProps) => void;
   table: (slide: PptxGenJS.Slide, props: TableProps) => void;
   caption: (slide: PptxGenJS.Slide, props: CaptionProps) => void;
+  calloutBlock: (slide: PptxGenJS.Slide, props: CalloutBlockProps) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------

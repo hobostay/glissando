@@ -30,6 +30,7 @@ export function applyPreset(theme: Theme, preset: FontPreset): Theme {
       ...theme.config,
       fonts: { ...preset.fonts },
       sizes: { ...preset.sizes },
+      ...(preset.codeStyle ? { codeStyle: { ...preset.codeStyle } } : {}),
     },
   };
 }
