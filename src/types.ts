@@ -166,7 +166,7 @@ export interface CaptionProps {
   w: number;
 }
 
-export type CalloutVariant = "card" | "code" | "info" | "warning" | "accent";
+export type CalloutVariant = "card" | "code" | "info" | "warning" | "accent" | "success";
 
 export interface CalloutBlockProps {
   variant: CalloutVariant;
@@ -178,6 +178,100 @@ export interface CalloutBlockProps {
   body?: string;
   bullets?: string[];
   icon?: string;        // optional leading icon/emoji
+}
+
+// ---------------------------------------------------------------------------
+// Diagram props — boxes, arrows, connectors, containers
+// ---------------------------------------------------------------------------
+
+/** A connection point on a shape (top/right/bottom/left). */
+export interface ConnectionPoint {
+  x: number;
+  y: number;
+  idx: number;          // OOXML connection point: 0=top, 1=right, 2=bottom, 3=left
+  _shapeName: string;   // internal: objectName for XML lookup
+}
+
+/** Returned by diagramBox — provides connection points for connectors. */
+export interface ShapeRef {
+  top: ConnectionPoint;
+  right: ConnectionPoint;
+  bottom: ConnectionPoint;
+  left: ConnectionPoint;
+}
+
+export interface DiagramBoxProps {
+  text: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  fill?: string;
+  border?: string;
+  borderWidth?: number;
+  textColor?: string;
+  fontSize?: number;
+  bold?: boolean;
+}
+
+/** Connector between two shapes (creates native OOXML connectors that move with shapes). */
+export interface ConnectorProps {
+  from: ConnectionPoint;
+  to: ConnectionPoint;
+  type?: "straight" | "elbow" | "curved";
+  color?: string;
+  width?: number;       // line width in pt (default 1)
+  head?: "arrow" | "stealth" | "triangle" | "none";
+  tail?: "arrow" | "stealth" | "triangle" | "none";
+  label?: string;        // text label positioned near the midpoint
+  labelItalic?: boolean;  // italic label (default true)
+}
+
+/** Stored internally for post-processing into OOXML <p:cxnSp>. */
+export interface ConnectorDef {
+  slideIndex: number;
+  from: ConnectionPoint;
+  to: ConnectionPoint;
+  type: "straight" | "elbow" | "curved";
+  color: string;
+  width: number;
+  head: string;
+  tail: string;
+  label?: string;
+  labelItalic?: boolean;
+}
+
+export interface ArrowProps {
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  color?: string;
+  width?: number;
+  head?: "arrow" | "stealth" | "triangle" | "none";
+  tail?: "arrow" | "stealth" | "triangle" | "none";
+  dashed?: boolean;
+}
+
+export interface HookArrowProps {
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  hookDirection: "right-down" | "right-up" | "down-right" | "down-left" | "up-right" | "left-down";
+  color?: string;
+  width?: number;
+  head?: "arrow" | "stealth" | "triangle" | "none";
+  tail?: "arrow" | "stealth" | "triangle" | "none";
+  dashed?: boolean;
+}
+
+export interface ContainerProps {
+  label?: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  border?: string;
+  fill?: string;
+  labelColor?: string;
+  fontSize?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -195,6 +289,10 @@ export interface ThemeComponents {
   table: (slide: PptxGenJS.Slide, props: TableProps) => void;
   caption: (slide: PptxGenJS.Slide, props: CaptionProps) => void;
   calloutBlock: (slide: PptxGenJS.Slide, props: CalloutBlockProps) => Promise<void>;
+  diagramBox: (slide: PptxGenJS.Slide, props: DiagramBoxProps) => ShapeRef;
+  arrow: (slide: PptxGenJS.Slide, props: ArrowProps) => void;
+  hookArrow: (slide: PptxGenJS.Slide, props: HookArrowProps) => void;
+  container: (slide: PptxGenJS.Slide, props: ContainerProps) => ShapeRef;
 }
 
 // ---------------------------------------------------------------------------

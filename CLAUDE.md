@@ -125,6 +125,7 @@ Components can be used directly for custom slides via `deck.components`:
 | `info` | Blue tint `#EEF1FA` | Info circle | Tips, notes, helpful info |
 | `warning` | Amber `#FDF5EB` | Triangle alert | Cautions, deprecation notices |
 | `accent` | Terra cotta `#FAF0EB` | Circle check | Key takeaways, featured items |
+| `success` | Green tint `#ECFAF0` | Circle check | Success states, completed items |
 
 ## Adding a New Theme
 
