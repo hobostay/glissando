@@ -41,6 +41,46 @@ export default async function build() {
     ].join("\n"),
   });
 
+  deck.code({
+    title: "Longer Example",
+    language: "python",
+    code: [
+      "import requests",
+      "import time",
+      "",
+      "def fetch_with_retry(url, retries=3):",
+      "    for i in range(retries):",
+      "        resp = requests.get(url)",
+      "        if resp.ok:",
+      "            return resp.json()",
+      "        time.sleep(2 ** i)",
+      '    raise RuntimeError("all retries failed")',
+    ].join("\n"),
+  });
+
+  // Narrow code block
+  {
+    const slide = deck.blank({ bg: "primary" });
+    const { heading: hd, accentBar: bar, codeBlock: cb } = deck.components;
+    const sp = deck.config.spacing;
+    const contentW = sp.slideWidth - sp.marginLeft - sp.marginRight;
+
+    hd(slide, { text: "Narrow Code Block", x: sp.marginLeft, y: sp.marginTop, w: contentW });
+    bar(slide, { x: sp.marginLeft, y: sp.marginTop + 0.8, w: 1.5 });
+
+    cb(slide, {
+      code: [
+        "x = 42",
+        "y = x ** 2",
+        'print(f"{x}² = {y}")',
+      ].join("\n"),
+      language: "python",
+      x: sp.marginLeft,
+      y: sp.marginTop + 1.3,
+      w: 5,
+    });
+  }
+
   // --- Callout blocks showcase ---
   {
     const slide = deck.blank({ bg: "primary" });

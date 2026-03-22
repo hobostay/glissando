@@ -12,7 +12,7 @@
  */
 
 import { execSync } from "child_process";
-import { mkdtempSync, cpSync, rmSync, readFileSync, writeFileSync } from "fs";
+import { mkdtempSync, cpSync, rmSync, readFileSync, writeFileSync, readdirSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import PptxGenJS from "pptxgenjs";
@@ -199,6 +199,9 @@ export class Deck {
       if (this._connectorDefs.length > 0) {
         this.injectConnectors(tmp);
       }
+
+      // --- Group code block shapes (bg + rule → <p:grpSp>) ---
+      this.groupCodeBlocks(tmp);
 
       // Repack
       execSync(`cd "${tmp}" && zip -q -r "${pptxPath}" .`);
@@ -442,5 +445,130 @@ export class Deck {
         writeFileSync(slidePath, xml, "utf-8");
       }
     }
+  }
+
+  /**
+   * Group code block shapes (bg, label, rule, code) into <p:grpSp>.
+   * Shapes are tagged with objectName "cb-N-bg/label/rule/code".
+   */
+  private groupCodeBlocks(tmpDir: string): void {
+    const slidesDir = join(tmpDir, "ppt", "slides");
+    const slideFiles = readdirSync(slidesDir).filter((f) => /^slide\d+\.xml$/.test(f));
+
+    for (const file of slideFiles) {
+      const slidePath = join(slidesDir, file);
+      let xml = readFileSync(slidePath, "utf-8");
+
+      // Find all code block group IDs
+      const groupIds = new Set<string>();
+      const namePattern = /name="cb-(\d+)-bg"/g;
+      let m: RegExpExecArray | null;
+      while ((m = namePattern.exec(xml)) !== null) {
+        groupIds.add(m[1]);
+      }
+
+      if (groupIds.size === 0) continue;
+
+      for (const gid of groupIds) {
+        const parts = ["bg", "label", "rule", "code"];
+        const shapes: string[] = [];
+
+        // Extract all 4 shapes
+        for (const part of parts) {
+          const shapeXml = this.extractShape(xml, `cb-${gid}-${part}`);
+          if (shapeXml) {
+            xml = xml.replace(shapeXml, "");
+            shapes.push(shapeXml);
+          }
+        }
+
+        if (shapes.length === 0) continue;
+
+        // Get bounding box from the bg shape (first one)
+        const offMatch = shapes[0].match(/<a:off x="(\d+)" y="(\d+)"/);
+        const extMatch = shapes[0].match(/<a:ext cx="(\d+)" cy="(\d+)"/);
+        if (!offMatch || !extMatch) continue;
+
+        const gx = parseInt(offMatch[1]);
+        const gy = parseInt(offMatch[2]);
+        const gcx = parseInt(extMatch[1]);
+        const gcy = parseInt(extMatch[2]);
+
+        // Next available ID
+        let maxId = 0;
+        const idRegex = /id="(\d+)"/g;
+        let im: RegExpExecArray | null;
+        while ((im = idRegex.exec(xml)) !== null) {
+          maxId = Math.max(maxId, parseInt(im[1]));
+        }
+        maxId++;
+
+        // Build group — bg first (back), then rule, then label+code on top
+        const grpSpXml =
+          `<p:grpSp>` +
+          `<p:nvGrpSpPr>` +
+          `<p:cNvPr id="${maxId}" name="CodeBlock ${gid}"/>` +
+          `<p:cNvGrpSpPr><a:grpSpLocks noChangeAspect="0"/></p:cNvGrpSpPr>` +
+          `<p:nvPr/>` +
+          `</p:nvGrpSpPr>` +
+          `<p:grpSpPr>` +
+          `<a:xfrm>` +
+          `<a:off x="${gx}" y="${gy}"/>` +
+          `<a:ext cx="${gcx}" cy="${gcy}"/>` +
+          `<a:chOff x="${gx}" y="${gy}"/>` +
+          `<a:chExt cx="${gcx}" cy="${gcy}"/>` +
+          `</a:xfrm>` +
+          `</p:grpSpPr>` +
+          shapes.join("") +
+          `</p:grpSp>`;
+
+        xml = xml.replace("</p:spTree>", grpSpXml + "</p:spTree>");
+      }
+
+      writeFileSync(slidePath, xml, "utf-8");
+    }
+  }
+
+  /**
+   * Extract a complete <p:sp>...</p:sp> element that contains
+   * the given objectName (from name="..." attribute).
+   * Returns the full XML string or null if not found.
+   */
+  private extractShape(xml: string, objectName: string): string | null {
+    // Find the position of the objectName reference
+    const nameStr = `name="${objectName}"`;
+    const nameIdx = xml.indexOf(nameStr);
+    if (nameIdx === -1) return null;
+
+    // Walk backwards to find the opening <p:sp> tag
+    let start = nameIdx;
+    while (start > 0) {
+      // Look for <p:sp> that is NOT <p:spTree> or <p:sp > variants
+      if (xml.startsWith("<p:sp>", start) || xml.startsWith("<p:sp ", start)) {
+        // Make sure this isn't <p:spTree or <p:spPr etc
+        const afterTag = xml[start + 5]; // char after "<p:sp"
+        if (afterTag === ">" || afterTag === " ") {
+          break;
+        }
+      }
+      start--;
+    }
+
+    // Walk forward to find the closing </p:sp> tag
+    let end = nameIdx;
+    const closeTag = "</p:sp>";
+    while (end < xml.length) {
+      if (xml.startsWith(closeTag, end)) {
+        end += closeTag.length;
+        break;
+      }
+      end++;
+    }
+
+    if (start === 0 && !xml.startsWith("<p:sp>") && !xml.startsWith("<p:sp ")) {
+      return null;
+    }
+
+    return xml.substring(start, end);
   }
 }

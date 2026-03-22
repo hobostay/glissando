@@ -10,6 +10,14 @@ npm install
 ./build.sh examples/ai-tooling-tutorial           # → output.pptx
 ```
 
+## Build, Test, and Development Commands
+
+- `npm install` — install runtime (pptxgenjs, sharp) and tooling dependencies.
+- `./build.sh examples/<deck>` — compile `slides.ts` into `output.pptx` inside that example folder.
+- `npx tsx runner.ts <path-to-deck>` — run the builder directly when debugging runner changes.
+- `npx tsc --noEmit` — type-check the library; keep the tree free of TypeScript errors before opening a PR.
+- No automated test suite yet; validate by building at least one sample deck that exercises the change.
+
 ## Architecture
 
 **Theme = Config + Components + Layouts**
@@ -19,6 +27,33 @@ npm install
 - **Layouts** (`layouts.ts`): pre-designed slide arrangements that compose components at fixed positions
 
 The agent only provides **content**. All positioning, colors, and fonts are handled by the theme.
+
+## File Structure
+
+```
+src/
+  index.ts                  Deck class (public API) + PPTX post-processing
+  types.ts                  TypeScript types for Theme, Components, Layouts
+  highlight.ts              Syntax highlighter (per-language keyword coloring)
+  icons.ts                  Lucide icon renderer (SVG → PNG via sharp)
+  themes/
+    claude-doc/
+      index.ts              Theme object + applyPreset helper
+      config.ts             Colors, fonts, sizes, spacing, code style
+      components.ts         Pre-designed components (factory)
+      layouts.ts            Pre-designed slide layouts
+      presets.ts            Font presets (default, macosNative, googleFonts)
+      fonts/                Font files + install instructions
+examples/
+  ai-tooling-tutorial/      Real-world deck (default preset)
+  mimic-claude-macos/       macOS native fonts (Iowan Old Style + Avenir Next)
+  mimic-claude-google-fonts/  Google Fonts (Libre Baskerville + Space Grotesk)
+build.sh                    Universal build: ./build.sh <path>
+runner.ts                   Build runner (called by build.sh)
+scripts/
+  install-fonts.sh          Font installer (macOS/Linux)
+  install-fonts.ps1         Font installer (Windows)
+```
 
 ## Creating a New Deck
 
@@ -50,33 +85,6 @@ export default function build() {
   const deck = new Deck(applyPreset(claudeDoc, macosNative));
   // ...
 }
-```
-
-## File Structure
-
-```
-src/
-  index.ts                  Deck class (public API)
-  types.ts                  TypeScript types for Theme, Components, Layouts
-  highlight.ts              Syntax highlighter (per-language keyword coloring)
-  icons.ts                  Lucide icon renderer (SVG → PNG via sharp)
-  themes/
-    claude-doc/
-      index.ts              Theme object + applyPreset helper
-      config.ts             Colors, fonts, sizes, spacing, code style
-      components.ts         Pre-designed components (factory)
-      layouts.ts            Pre-designed slide layouts
-      presets.ts            Font presets (default, macosNative, googleFonts)
-      fonts/                Font files + install instructions
-examples/
-  ai-tooling-tutorial/      Real-world deck (default preset)
-  mimic-claude-macos/       macOS native fonts (Iowan Old Style + Avenir Next)
-  mimic-claude-google-fonts/  Google Fonts (Libre Baskerville + Space Grotesk)
-build.sh                    Universal build: ./build.sh <path>
-runner.ts                   Build runner (called by build.sh)
-scripts/
-  install-fonts.sh          Font installer (macOS/Linux)
-  install-fonts.ps1         Font installer (Windows)
 ```
 
 ## Font Presets
@@ -115,6 +123,10 @@ Components can be used directly for custom slides via `deck.components`:
 - `table(slide, { headers, rows, x, y, w })` — themed table
 - `caption(slide, { text, x, y, w })` — small muted text
 - `calloutBlock(slide, { variant, x, y, w, h?, body?, bullets? })` — round-cornered callout panel (async)
+- `diagramBox(slide, { text, x, y, w, h, fill?, border?, textColor? })` — rounded box returning `ShapeRef` with connection points
+- `arrow(slide, { from, to, color?, width?, head?, tail?, dashed? })` — straight arrow between coordinates
+- `hookArrow(slide, { from, to, hookDirection, ... })` — L-shaped elbow arrow
+- `container(slide, { label?, x, y, w, h, border?, fill? })` — dashed-border grouping box returning `ShapeRef`
 
 ## Callout Block Variants
 
@@ -126,6 +138,18 @@ Components can be used directly for custom slides via `deck.components`:
 | `warning` | Amber `#FDF5EB` | Triangle alert | Cautions, deprecation notices |
 | `accent` | Terra cotta `#FAF0EB` | Circle check | Key takeaways, featured items |
 | `success` | Green tint `#ECFAF0` | Circle check | Success states, completed items |
+
+## Native Connectors
+
+`deck.connector()` creates OOXML connectors that bind to shape connection points and move with shapes when dragged:
+
+```ts
+const boxA = deck.components.diagramBox(slide, { text: "A", x: 1, y: 2, w: 2, h: 1 });
+const boxB = deck.components.diagramBox(slide, { text: "B", x: 6, y: 2, w: 2, h: 1 });
+deck.connector({ from: boxA.right, to: boxB.left, type: "straight", label: "flow" });
+```
+
+Types: `straight`, `elbow`, `curved`. Head/tail: `arrow`, `stealth`, `triangle`, `none`.
 
 ## Adding a New Theme
 
@@ -142,3 +166,21 @@ heading(slide, { text: "Custom Layout", x: 0.8, y: 0.5, w: 11 });
 codeBlock(slide, { code: "print('hi')", x: 0.8, y: 1.5, w: 5, language: "python" });
 await calloutBlock(slide, { variant: "info", x: 6.5, y: 1.5, w: 5, body: "Note here" });
 ```
+
+## Coding Style & Conventions
+
+- Modern TypeScript/ES modules, 2-space indentation, trailing commas.
+- Descriptive domain nouns for exports (`claudeDoc`), verbs for layout methods (`deck.title`, `deck.content`).
+- New themes go in `src/themes/<name>/`; shared utilities stay in `src/` root.
+- Match surrounding style — no repo-wide formatter is enforced.
+
+## Commit & PR Guidelines
+
+- Short imperative commit summaries ("Add diagram components").
+- PRs should describe motivation, list impacted slides/themes, and include deck paths used for validation.
+- Attach screenshots of key slides when visuals change.
+
+## Security Notes
+
+- Don't commit generated PPTX or OS-specific font files; keep artifacts in `.gitignore`d folders.
+- No secrets needed — `sharp` processes local files only. Keep build paths relative.

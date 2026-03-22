@@ -110,27 +110,79 @@ export const createComponents: ComponentFactory = (cfg: ThemeConfig): ThemeCompo
   }
 
   // --- Code block (with syntax highlighting) ---
+  //
+  // 4 separate shapes, grouped in post-processing:
+  //   1. bg:    rounded rect background (no text)
+  //   2. label: "python" text box (top-right, above rule)
+  //   3. rule:  horizontal line at fixed RULE_Y from top
+  //   4. code:  text box with syntax-highlighted code (below rule)
+  //
+  //  ┌──────────────────────────── python ─┐  bg shape
+  //  ├─────────────────────────────────────┤  rule at RULE_Y = 0.32"
+  //  │  def greet(name: str) -> str:       │  code text box
+  //  │      return f"Hello, {name}!"       │
+  //  │  print(greet("world"))              │
+  //  └─────────────────────────────────────┘
+
+  let codeBlockCounter = 0;
+
   function codeBlock(slide: PptxGenJS.Slide, props: CodeBlockProps): void {
     const cs = cfg.codeStyle;
+    const lang = props.language ?? "";
+    const gid = lang ? codeBlockCounter++ : -1;
 
-    // Calculate height from code content
+    // Fixed geometry
+    const RULE_Y = 0.32;    // inches from top edge to midrule (fixed)
+    const CODE_Y = 0.40;    // inches from top edge to code text start
+    const LABEL_Y = 0.06;   // inches from top edge to label
+    const SIDE_PAD = 0.25;  // inches
+    const BOT_PAD = 0.35;   // inches below last code line
+
+    // Auto-height
     const lineCount = props.code.split("\n").length;
-    const lineHeightIn = (s.code / 72) * 1.4; // fontSize pt → inches, × line-spacing
-    const headerHeight = props.language ? 0.5 : 0.25;
-    const padding = 0.35; // top + bottom padding inside the panel
-    const autoH = headerHeight + lineCount * lineHeightIn + padding;
+    const lineHeightIn = (s.code / 72) * 1.4;
+    const autoH = CODE_Y + lineCount * lineHeightIn + BOT_PAD;
     const h = props.h ? Math.min(props.h, autoH) : autoH;
 
-    // Top margin in pt to leave room for the language label + separator
-    const topMarginPt = props.language ? 36 : 18; // ~0.5" or ~0.25"
-    const sidePadPt = 22; // ~0.3"
-    const lang = props.language ?? "";
+    // Shape 1: background rounded rect (no text)
+    slide.addShape("roundRect", {
+      x: props.x, y: props.y, w: props.w, h,
+      fill: { color: cs.bg },
+      rectRadius: cs.borderRadius ?? 0.15,
+      line: cs.border
+        ? { color: cs.border, width: 1 }
+        : { color: cs.bg, width: 0.5 },
+      objectName: lang ? `cb-${gid}-bg` : undefined,
+    } as any);
 
     if (lang) {
-      // Build multi-run highlighted text
+      // Shape 2: language label (top-right, above rule)
+      slide.addText(lang, {
+        x: props.x + props.w - 1.5,
+        y: props.y + LABEL_Y,
+        w: 1.3,
+        h: RULE_Y - LABEL_Y,
+        fontSize: s.small - 2,
+        fontFace: f.mono,
+        color: cs.label,
+        align: "right",
+        valign: "middle",
+        objectName: `cb-${gid}-label`,
+      });
+
+      // Shape 3: midrule (fixed distance from top)
+      slide.addShape("line", {
+        x: props.x,
+        y: props.y + RULE_Y,
+        w: props.w,
+        h: 0,
+        line: { color: cs.border ?? cs.text, width: 0.75 },
+        objectName: `cb-${gid}-rule`,
+      } as any);
+
+      // Shape 4: syntax-highlighted code text (below rule)
       const lines = highlightCode(props.code, lang, cs);
       const textRows: PptxGenJS.TextProps[] = [];
-
       for (let li = 0; li < lines.length; li++) {
         const tokens = lines[li];
         for (let ti = 0; ti < tokens.length; ti++) {
@@ -141,32 +193,27 @@ export const createComponents: ComponentFactory = (cfg: ThemeConfig): ThemeCompo
               fontSize: s.code,
               fontFace: f.mono,
               color: tokens[ti].color,
-              breakType: isLastToken ? "break" : undefined,
+              breakLine: isLastToken ? true : undefined,
             },
           });
         }
       }
-
-      // Single shape with code text built-in (bg + code move together)
       slide.addText(textRows, {
-        x: props.x, y: props.y, w: props.w, h,
-        shape: "roundRect" as any,
-        fill: { color: cs.bg },
-        rectRadius: cs.borderRadius ?? 0.1,
-        line: cs.border
-          ? { color: cs.border, width: 1 }
-          : { color: cs.bg, width: 0.5 },
+        x: props.x + SIDE_PAD,
+        y: props.y + CODE_Y,
+        w: props.w - SIDE_PAD * 2,
+        h: h - CODE_Y - 0.1,
         valign: "top",
         lineSpacingMultiple: 1.4,
-        margin: [topMarginPt, sidePadPt, 10, sidePadPt],
+        objectName: `cb-${gid}-code`,
       });
     } else {
-      // No language — plain monochrome text, single shape
+      // No language — code text built into the rounded rect
       slide.addText(props.code, {
         x: props.x, y: props.y, w: props.w, h,
         shape: "roundRect" as any,
         fill: { color: cs.bg },
-        rectRadius: cs.borderRadius ?? 0.1,
+        rectRadius: cs.borderRadius ?? 0.15,
         line: cs.border
           ? { color: cs.border, width: 1 }
           : { color: cs.bg, width: 0.5 },
@@ -175,27 +222,7 @@ export const createComponents: ComponentFactory = (cfg: ThemeConfig): ThemeCompo
         color: cs.text,
         valign: "top",
         lineSpacingMultiple: 1.4,
-        margin: [topMarginPt, sidePadPt, 10, sidePadPt],
-      });
-    }
-
-    // Language label + separator line (overlaid chrome — separate elements)
-    if (props.language) {
-      slide.addText(props.language, {
-        x: props.x + props.w - 1.5, y: props.y + 0.1,
-        w: 1.3, h: 0.28,
-        fontSize: s.small - 2,
-        fontFace: f.mono,
-        color: cs.label,
-        align: "right",
-      });
-
-      slide.addShape("line", {
-        x: props.x,
-        y: props.y + 0.4,
-        w: props.w,
-        h: 0,
-        line: { color: cs.border ?? cs.text, width: 0.75 },
+        margin: [18, 22, 10, 22],
       });
     }
   }
