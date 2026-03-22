@@ -275,6 +275,20 @@ export interface ContainerProps {
 }
 
 // ---------------------------------------------------------------------------
+// Equation props
+// ---------------------------------------------------------------------------
+
+export interface EquationProps {
+  latex: string;
+  x: number;
+  y: number;
+  w: number;            // max width — height is auto-calculated from aspect ratio
+  h?: number;           // explicit height override
+  color?: string;       // hex WITHOUT #, defaults to theme text color
+  label?: string;       // optional label/caption below the equation
+}
+
+// ---------------------------------------------------------------------------
 // Components — functions that render elements onto a slide
 // ---------------------------------------------------------------------------
 
@@ -293,6 +307,7 @@ export interface ThemeComponents {
   arrow: (slide: PptxGenJS.Slide, props: ArrowProps) => void;
   hookArrow: (slide: PptxGenJS.Slide, props: HookArrowProps) => void;
   container: (slide: PptxGenJS.Slide, props: ContainerProps) => ShapeRef;
+  equation: (slide: PptxGenJS.Slide, props: EquationProps) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -346,6 +361,11 @@ export interface TableLayoutProps {
   rows: string[][];
 }
 
+export interface EquationLayoutProps {
+  title: string;
+  equations: Array<{ latex: string; label?: string }>;
+}
+
 export interface BlankLayoutProps {
   bg?: "primary" | "dark" | "accent";
 }
@@ -363,6 +383,7 @@ export interface ThemeLayouts {
   quote: (pres: PptxGenJS, config: ThemeConfig, components: ThemeComponents, props: QuoteLayoutProps) => void;
   image: (pres: PptxGenJS, config: ThemeConfig, components: ThemeComponents, props: ImageLayoutProps) => void;
   table: (pres: PptxGenJS, config: ThemeConfig, components: ThemeComponents, props: TableLayoutProps) => void;
+  equation: (pres: PptxGenJS, config: ThemeConfig, components: ThemeComponents, props: EquationLayoutProps) => Promise<void>;
   blank: (pres: PptxGenJS, config: ThemeConfig, components: ThemeComponents, props: BlankLayoutProps) => void;
 }
 

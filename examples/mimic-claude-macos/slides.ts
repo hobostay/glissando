@@ -206,6 +206,34 @@ export default async function build() {
     });
   }
 
+  // --- Equation slide (layout) ---
+  await deck.equation({
+    title: "Key Equations",
+    equations: [
+      { latex: "E = mc^2", label: "Mass–energy equivalence" },
+      { latex: "\\nabla \\times \\mathbf{E} = -\\frac{\\partial \\mathbf{B}}{\\partial t}", label: "Faraday's law" },
+      { latex: "\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}", label: "Gaussian integral" },
+    ],
+  });
+
+  // --- Equation component (custom slide) ---
+  {
+    const slide = deck.blank({ bg: "primary" });
+    const { heading: hd, accentBar: bar, equation: eq } = deck.components;
+    const sp = deck.config.spacing;
+    const contentW = sp.slideWidth - sp.marginLeft - sp.marginRight;
+
+    hd(slide, { text: "Bayes' Theorem", x: sp.marginLeft, y: sp.marginTop, w: contentW });
+    bar(slide, { x: sp.marginLeft, y: sp.marginTop + 0.8, w: 1.5 });
+
+    await eq(slide, {
+      latex: "P(A \\mid B) = \\frac{P(B \\mid A)\\, P(A)}{P(B)}",
+      x: sp.marginLeft + 1,
+      y: sp.marginTop + 1.5,
+      w: contentW - 2,
+    });
+  }
+
   deck.quote({
     quote: "Typography is the craft of endowing human language with a durable visual form.",
     attribution: "Robert Bringhurst",

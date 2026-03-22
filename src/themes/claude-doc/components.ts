@@ -26,9 +26,11 @@ import type {
   ArrowProps,
   HookArrowProps,
   ContainerProps,
+  EquationProps,
 } from "../../types.js";
 import { highlightCode } from "../../highlight.js";
 import { lucideIcon } from "../../icons.js";
+import { renderEquation } from "../../equation.js";
 
 export const createComponents: ComponentFactory = (cfg: ThemeConfig): ThemeComponents => {
   const { colors: c, fonts: f, sizes: s } = cfg;
@@ -539,5 +541,34 @@ export const createComponents: ComponentFactory = (cfg: ThemeConfig): ThemeCompo
     return makeShapeRef(name, props.x, props.y, props.w, props.h);
   }
 
-  return { accentBar, heading, bodyText, bulletList, numberedList, codeBlock, quoteBox, table, caption, calloutBlock, diagramBox, arrow, hookArrow, container };
+  // --- Equation — LaTeX rendered to PNG via MathJax + sharp ---
+  async function equation(slide: PptxGenJS.Slide, props: EquationProps): Promise<void> {
+    const color = props.color ?? c.text;
+    const result = await renderEquation(props.latex, color);
+
+    // Calculate height from aspect ratio: fit within w, derive h
+    const h = props.h ?? props.w / result.aspectRatio;
+
+    slide.addImage({
+      data: result.data,
+      x: props.x, y: props.y, w: props.w, h,
+      sizing: { type: "contain", w: props.w, h },
+    });
+
+    if (props.label) {
+      slide.addText(props.label, {
+        x: props.x,
+        y: props.y + h + 0.05,
+        w: props.w,
+        h: 0.3,
+        fontSize: s.caption,
+        fontFace: f.sans,
+        color: c.textMuted,
+        italic: true,
+        align: "center",
+      });
+    }
+  }
+
+  return { accentBar, heading, bodyText, bulletList, numberedList, codeBlock, quoteBox, table, caption, calloutBlock, diagramBox, arrow, hookArrow, container, equation };
 };

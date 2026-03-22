@@ -23,6 +23,7 @@ import type {
   QuoteLayoutProps,
   ImageLayoutProps,
   TableLayoutProps,
+  EquationLayoutProps,
   BlankLayoutProps,
   ConnectorProps,
   ConnectorDef,
@@ -107,6 +108,13 @@ export class Deck {
   /** Table slide with themed headers. */
   table(props: TableLayoutProps): this {
     this.theme.layouts.table(this.pres, this.theme.config, this.boundComponents, props);
+    this._slideCount++;
+    return this;
+  }
+
+  /** Equation slide with rendered LaTeX. */
+  async equation(props: EquationLayoutProps): Promise<this> {
+    await this.theme.layouts.equation(this.pres, this.theme.config, this.boundComponents, props);
     this._slideCount++;
     return this;
   }

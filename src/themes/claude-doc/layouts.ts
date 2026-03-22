@@ -18,6 +18,7 @@ import type {
   QuoteLayoutProps,
   ImageLayoutProps,
   TableLayoutProps,
+  EquationLayoutProps,
   BlankLayoutProps,
 } from "../../types.js";
 
@@ -374,6 +375,50 @@ function blank(
 }
 
 // ---------------------------------------------------------------------------
+// Equation slide — heading + rendered LaTeX equations
+// ---------------------------------------------------------------------------
+
+async function equationLayout(
+  pres: PptxGenJS, cfg: ThemeConfig, comp: ThemeComponents,
+  props: EquationLayoutProps,
+): Promise<void> {
+  const slide = pres.addSlide();
+  const { colors: c, spacing: sp } = cfg;
+  const contentW = sp.slideWidth - sp.marginLeft - sp.marginRight;
+  slide.background = { color: c.bgPrimary };
+
+  comp.heading(slide, {
+    text: props.title,
+    x: sp.marginLeft,
+    y: sp.marginTop,
+    w: contentW,
+  });
+
+  comp.accentBar(slide, { x: sp.marginLeft, y: sp.marginTop + 0.8, w: 1.5 });
+
+  // Stack equations vertically with auto-spacing
+  let curY = sp.marginTop + 1.3;
+  const eqW = contentW * 0.6;  // equations centered at 60% width
+  const eqX = sp.marginLeft + (contentW - eqW) / 2;
+
+  for (const eq of props.equations) {
+    await comp.equation(slide, {
+      latex: eq.latex,
+      x: eqX,
+      y: curY,
+      w: eqW,
+      label: eq.label,
+    });
+
+    // Estimate height for spacing (render to get aspect ratio)
+    const { renderEquation } = await import("../../equation.js");
+    const result = await renderEquation(eq.latex, c.text);
+    const eqH = eqW / result.aspectRatio;
+    curY += eqH + (eq.label ? 0.55 : 0.35);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Export all layouts
 // ---------------------------------------------------------------------------
 
@@ -386,5 +431,6 @@ export const layouts: ThemeLayouts = {
   quote,
   image,
   table: tableLayout,
+  equation: equationLayout,
   blank,
 };
