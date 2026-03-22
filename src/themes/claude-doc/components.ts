@@ -311,8 +311,11 @@ export const createComponents: ComponentFactory = (cfg: ThemeConfig): ThemeCompo
     success: { bg: "ECFAF0",  border: "7BBF96", textColor: "7BBF96",       iconName: "circleCheck" },
   };
 
+  let calloutCounter = 0;
+
   async function calloutBlock(slide: PptxGenJS.Slide, props: CalloutBlockProps): Promise<void> {
     const style = calloutStyles[props.variant];
+    const gid = calloutCounter++;
 
     // Calculate auto-height from content
     const bodyLineH = (s.small / 72) * 1.5;
@@ -326,7 +329,7 @@ export const createComponents: ComponentFactory = (cfg: ThemeConfig): ThemeCompo
     // Left margin in points to leave room for the icon
     const iconInset = 48; // ~0.63 inches in points (icon 0.28" + padding)
 
-    // Single shape with text built-in (text moves with shape on drag)
+    // Shape: rounded rect with text built-in
     if (props.body) {
       slide.addText(props.body, {
         x: props.x, y: props.y, w: props.w, h,
@@ -339,6 +342,7 @@ export const createComponents: ComponentFactory = (cfg: ThemeConfig): ThemeCompo
         valign: "top",
         lineSpacingMultiple: 1.4,
         margin: [14, 14, 14, iconInset],
+        objectName: `co-${gid}-bg`,
       });
     } else if (props.bullets) {
       const rows: PptxGenJS.TextProps[] = props.bullets.map((item) => ({
@@ -359,16 +363,18 @@ export const createComponents: ComponentFactory = (cfg: ThemeConfig): ThemeCompo
         valign: "top",
         lineSpacingMultiple: 1.2,
         margin: [14, 14, 14, iconInset],
+        objectName: `co-${gid}-bg`,
       });
     }
 
-    // Lucide PNG icon (top-left, overlaid — only element that's separate)
+    // Lucide PNG icon (top-left, grouped with the shape via post-processing)
     const iconData = await lucideIcon(style.iconName, style.border, 96);
     slide.addImage({
       data: iconData,
       x: props.x + 0.2, y: props.y + 0.18,
       w: 0.28, h: 0.28,
-    });
+      objectName: `co-${gid}-icon`,
+    } as any);
   }
 
   // =========================================================================
@@ -405,7 +411,7 @@ export const createComponents: ComponentFactory = (cfg: ThemeConfig): ThemeCompo
       bold: props.bold ?? true,
       align: "center",
       valign: "middle",
-      margin: [0, 8, 0, 8],
+      margin: 0,
       objectName: name,
     });
     return makeShapeRef(name, props.x, props.y, props.w, props.h);
@@ -546,13 +552,19 @@ export const createComponents: ComponentFactory = (cfg: ThemeConfig): ThemeCompo
     const color = props.color ?? c.text;
     const result = await renderEquation(props.latex, color);
 
-    // Calculate height from aspect ratio: fit within w, derive h
-    const h = props.h ?? props.w / result.aspectRatio;
+    // Size: cap height at 0.6" by default, scale width to match aspect ratio
+    const maxH = props.h ?? 0.6;
+    const naturalH = props.w / result.aspectRatio;
+    const h = Math.min(naturalH, maxH);
+    const w = h * result.aspectRatio;
+
+    // Center horizontally within the provided width
+    const xOff = props.x + (props.w - w) / 2;
 
     slide.addImage({
       data: result.data,
-      x: props.x, y: props.y, w: props.w, h,
-      sizing: { type: "contain", w: props.w, h },
+      x: xOff, y: props.y, w, h,
+      sizing: { type: "contain", w, h },
     });
 
     if (props.label) {

@@ -63,6 +63,9 @@ export async function patchPptx(pptxPath: string, opts: PatchOptions): Promise<v
   // --- Group code block shapes (bg + label + rule + code → <p:grpSp>) ---
   await groupCodeBlocks(zip);
 
+  // --- Group callout block shapes (bg + icon → <p:grpSp>) ---
+  await groupCalloutBlocks(zip);
+
   // Write back
   const out = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
   writeFileSync(pptxPath, out);
@@ -183,15 +186,16 @@ function buildCurvedArc(
   fromX: number, fromY: number, toX: number, toY: number,
   id: number, lineW: number, headType: string, EMU: number,
 ): string {
-  const arcBow = 1.0 * EMU;
-  const arcOffX = Math.min(fromX, toX);
-  const arcOffY = Math.min(fromY, toY);
-  const arcCx = Math.round(arcBow);
-  const arcCy = Math.abs(toY - fromY);
+  const arcBow = 0.7 * EMU;
 
-  const cp1x = Math.round(arcBow * 2);
+  const attachX = Math.max(fromX, toX);
+  const arcOffX = Math.round(attachX);
+  const arcOffY = Math.round(Math.min(fromY, toY));
+  const arcCx = Math.round(arcBow);
+  const arcCy = Math.round(Math.abs(toY - fromY));
+
+  const cpBow = Math.round(arcBow);
   const cp1y = Math.round(arcCy * 0.75);
-  const cp2x = Math.round(arcBow * 2);
   const cp2y = Math.round(arcCy * 0.25);
 
   const goingUp = fromY > toY;
@@ -209,21 +213,21 @@ function buildCurvedArc(
     `</p:nvSpPr>` +
     `<p:spPr>` +
     `<a:xfrm>` +
-    `<a:off x="${Math.round(arcOffX)}" y="${Math.round(arcOffY)}"/>` +
-    `<a:ext cx="${arcCx}" cy="${Math.round(arcCy)}"/>` +
+    `<a:off x="${arcOffX}" y="${arcOffY}"/>` +
+    `<a:ext cx="${arcCx}" cy="${arcCy}"/>` +
     `</a:xfrm>` +
     `<a:custGeom>` +
     `<a:avLst/>` +
     `<a:gdLst/>` +
     `<a:ahLst/>` +
     `<a:cxnLst/>` +
-    `<a:rect l="0" t="0" r="${arcCx}" b="${Math.round(arcCy)}"/>` +
+    `<a:rect l="0" t="0" r="${arcCx}" b="${arcCy}"/>` +
     `<a:pathLst>` +
-    `<a:path w="${arcCx}" h="${Math.round(arcCy)}">` +
+    `<a:path w="${arcCx}" h="${arcCy}">` +
     `<a:moveTo><a:pt x="0" y="${pathStartY}"/></a:moveTo>` +
     `<a:cubicBezTo>` +
-    `<a:pt x="${cp1x}" y="${cpA_y}"/>` +
-    `<a:pt x="${cp2x}" y="${cpB_y}"/>` +
+    `<a:pt x="${cpBow}" y="${cpA_y}"/>` +
+    `<a:pt x="${cpBow}" y="${cpB_y}"/>` +
     `<a:pt x="0" y="${pathEndY}"/>` +
     `</a:cubicBezTo>` +
     `</a:path>` +
@@ -291,7 +295,7 @@ function buildConnectorLabel(
 ): string {
   let labelX: number, labelY: number;
   if (conn.type === "curved") {
-    labelX = Math.max(fromX, toX) + 0.9 * EMU;
+    labelX = Math.max(fromX, toX) + 0.6 * EMU;
     labelY = (fromY + toY) / 2 - 0.15 * EMU;
   } else {
     labelX = (fromX + toX) / 2;
@@ -424,15 +428,26 @@ async function groupCodeBlocks(zip: JSZip): Promise<void> {
  * the given objectName (from name="..." attribute).
  */
 function extractShape(xml: string, objectName: string): string | null {
+  return extractElement(xml, objectName, "p:sp");
+}
+
+/**
+ * Extract a complete XML element (<p:sp> or <p:pic>) by objectName.
+ * Walks backward to find the opening tag, forward for the closing tag.
+ */
+function extractElement(xml: string, objectName: string, tag: string): string | null {
   const nameStr = `name="${objectName}"`;
   const nameIdx = xml.indexOf(nameStr);
   if (nameIdx === -1) return null;
 
-  // Walk backwards to find the opening <p:sp> tag
+  const openTag = `<${tag}`;
+  const closeTag = `</${tag}>`;
+
+  // Walk backwards to find the opening tag
   let start = nameIdx;
   while (start > 0) {
-    if (xml.startsWith("<p:sp>", start) || xml.startsWith("<p:sp ", start)) {
-      const afterTag = xml[start + 5]; // char after "<p:sp"
+    if (xml.startsWith(openTag, start)) {
+      const afterTag = xml[start + openTag.length];
       if (afterTag === ">" || afterTag === " ") {
         break;
       }
@@ -440,9 +455,8 @@ function extractShape(xml: string, objectName: string): string | null {
     start--;
   }
 
-  // Walk forward to find the closing </p:sp> tag
+  // Walk forward to find the closing tag
   let end = nameIdx;
-  const closeTag = "</p:sp>";
   while (end < xml.length) {
     if (xml.startsWith(closeTag, end)) {
       end += closeTag.length;
@@ -451,9 +465,104 @@ function extractShape(xml: string, objectName: string): string | null {
     end++;
   }
 
-  if (start === 0 && !xml.startsWith("<p:sp>") && !xml.startsWith("<p:sp ")) {
+  if (start === 0 && !xml.startsWith(openTag + ">") && !xml.startsWith(openTag + " ")) {
     return null;
   }
 
   return xml.substring(start, end);
+}
+
+// ---------------------------------------------------------------------------
+// Callout block grouping
+// ---------------------------------------------------------------------------
+
+/**
+ * Group callout block shapes (bg + icon) into <p:grpSp>.
+ * Shapes are tagged with objectName "co-N-bg" and "co-N-icon".
+ */
+async function groupCalloutBlocks(zip: JSZip): Promise<void> {
+  const slideFiles = Object.keys(zip.files).filter((f) =>
+    /^ppt\/slides\/slide\d+\.xml$/.test(f)
+  );
+
+  for (const slidePath of slideFiles) {
+    let xml = await zip.file(slidePath)!.async("string");
+
+    // Find all callout group IDs
+    const groupIds = new Set<string>();
+    const namePattern = /name="co-(\d+)-bg"/g;
+    let m: RegExpExecArray | null;
+    while ((m = namePattern.exec(xml)) !== null) {
+      groupIds.add(m[1]);
+    }
+
+    if (groupIds.size === 0) continue;
+
+    for (const gid of groupIds) {
+      const shapes: string[] = [];
+
+      // Extract bg shape (<p:sp>)
+      const bgXml = extractElement(xml, `co-${gid}-bg`, "p:sp");
+      if (bgXml) {
+        xml = xml.replace(bgXml, "");
+        shapes.push(bgXml);
+      }
+
+      // Extract icon image (<p:pic>)
+      const iconXml = extractElement(xml, `co-${gid}-icon`, "p:pic");
+      if (iconXml) {
+        xml = xml.replace(iconXml, "");
+        shapes.push(iconXml);
+      }
+
+      if (shapes.length < 2) {
+        // Put back any extracted shape if we couldn't find both
+        for (const s of shapes) {
+          xml = xml.replace("</p:spTree>", s + "</p:spTree>");
+        }
+        continue;
+      }
+
+      // Get bounding box from the bg shape (first one)
+      const offMatch = shapes[0].match(/<a:off x="(\d+)" y="(\d+)"/);
+      const extMatch = shapes[0].match(/<a:ext cx="(\d+)" cy="(\d+)"/);
+      if (!offMatch || !extMatch) continue;
+
+      const gx = parseInt(offMatch[1]);
+      const gy = parseInt(offMatch[2]);
+      const gcx = parseInt(extMatch[1]);
+      const gcy = parseInt(extMatch[2]);
+
+      // Next available ID
+      let maxId = 0;
+      const idRegex = /id="(\d+)"/g;
+      let im: RegExpExecArray | null;
+      while ((im = idRegex.exec(xml)) !== null) {
+        maxId = Math.max(maxId, parseInt(im[1]));
+      }
+      maxId++;
+
+      const grpSpXml =
+        `<p:grpSp>` +
+        `<p:nvGrpSpPr>` +
+        `<p:cNvPr id="${maxId}" name="Callout ${gid}"/>` +
+        `<p:cNvGrpSpPr><a:grpSpLocks noChangeAspect="0"/></p:cNvGrpSpPr>` +
+        `<p:nvPr/>` +
+        `</p:nvGrpSpPr>` +
+        `<p:grpSpPr>` +
+        `<a:xfrm>` +
+        `<a:off x="${gx}" y="${gy}"/>` +
+        `<a:ext cx="${gcx}" cy="${gcy}"/>` +
+        `<a:chOff x="${gx}" y="${gy}"/>` +
+        `<a:chExt cx="${gcx}" cy="${gcy}"/>` +
+        `</a:xfrm>` +
+        `</p:grpSpPr>` +
+        shapes.join("") +
+        `</p:grpSp>`;
+
+      xml = xml.replace("</p:spTree>", grpSpXml + "</p:spTree>");
+    }
+
+    zip.file(slidePath, xml);
+  }
 }

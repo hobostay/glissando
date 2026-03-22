@@ -410,10 +410,10 @@ async function equationLayout(
       label: eq.label,
     });
 
-    // Estimate height for spacing (render to get aspect ratio)
+    // Advance Y by capped equation height (matches component's 0.6" cap)
     const { renderEquation } = await import("../../equation.js");
     const result = await renderEquation(eq.latex, c.text);
-    const eqH = eqW / result.aspectRatio;
+    const eqH = Math.min(eqW / result.aspectRatio, 0.6);
     curY += eqH + (eq.label ? 0.55 : 0.35);
   }
 }
