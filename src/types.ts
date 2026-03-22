@@ -138,7 +138,7 @@ export interface CodeBlockProps {
   x: number;
   y: number;
   w: number;
-  h: number;
+  h?: number;
   language?: string;
 }
 

@@ -16,7 +16,7 @@ npm install
 - `./build.sh examples/<deck>` — compile `slides.ts` into `output.pptx` inside that example folder.
 - `npx tsx runner.ts <path-to-deck>` — run the builder directly when debugging runner changes.
 - `npx tsc --noEmit` — type-check the library; keep the tree free of TypeScript errors before opening a PR.
-- No automated test suite yet; validate by building at least one sample deck that exercises the change.
+- `npm test` — smoke-test all example decks (builds each, asserts output.pptx is produced).
 
 ## Architecture
 
@@ -32,7 +32,8 @@ The agent only provides **content**. All positioning, colors, and fonts are hand
 
 ```
 src/
-  index.ts                  Deck class (public API) + PPTX post-processing
+  index.ts                  Deck class (public API)
+  pptx-patch.ts             PPTX post-processing (font patching, connectors, grouping)
   types.ts                  TypeScript types for Theme, Components, Layouts
   highlight.ts              Syntax highlighter (per-language keyword coloring)
   icons.ts                  Lucide icon renderer (SVG → PNG via sharp)
