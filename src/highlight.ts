@@ -59,6 +59,68 @@ const KEYWORDS: Record<string, Set<string>> = {
     "case", "esac", "in", "function", "return", "exit", "local", "export",
     "source", "echo", "read", "set", "unset", "true", "false",
   ]),
+  java: new Set([
+    "abstract", "assert", "boolean", "break", "byte", "case", "catch",
+    "char", "class", "const", "continue", "default", "do", "double",
+    "else", "enum", "extends", "final", "finally", "float", "for",
+    "goto", "if", "implements", "import", "instanceof", "int", "interface",
+    "long", "native", "new", "null", "package", "private", "protected",
+    "public", "return", "short", "static", "strictfp", "super", "switch",
+    "synchronized", "this", "throw", "throws", "transient", "try", "void",
+    "volatile", "while", "true", "false",
+  ]),
+  sql: new Set([
+    "SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET",
+    "DELETE", "CREATE", "TABLE", "DROP", "ALTER", "ADD", "INDEX", "VIEW",
+    "JOIN", "INNER", "LEFT", "RIGHT", "OUTER", "ON", "AS", "AND", "OR",
+    "NOT", "NULL", "IS", "IN", "BETWEEN", "LIKE", "ORDER", "BY", "GROUP",
+    "HAVING", "LIMIT", "OFFSET", "UNION", "ALL", "DISTINCT", "COUNT",
+    "SUM", "AVG", "MIN", "MAX", "CASE", "WHEN", "THEN", "ELSE", "END",
+    "EXISTS", "PRIMARY", "KEY", "FOREIGN", "REFERENCES", "CONSTRAINT",
+    "DEFAULT", "CHECK", "UNIQUE", "WITH", "RECURSIVE", "OVER", "PARTITION",
+    // lowercase aliases
+    "select", "from", "where", "insert", "into", "values", "update", "set",
+    "delete", "create", "table", "drop", "alter", "add", "index", "view",
+    "join", "inner", "left", "right", "outer", "on", "as", "and", "or",
+    "not", "null", "is", "in", "between", "like", "order", "by", "group",
+    "having", "limit", "offset", "union", "all", "distinct", "count",
+    "sum", "avg", "min", "max", "case", "when", "then", "else", "end",
+    "exists", "primary", "key", "foreign", "references", "constraint",
+    "default", "check", "unique", "with", "recursive", "over", "partition",
+  ]),
+  c: new Set([
+    "auto", "break", "case", "char", "const", "continue", "default", "do",
+    "double", "else", "enum", "extern", "float", "for", "goto", "if",
+    "inline", "int", "long", "register", "restrict", "return", "short",
+    "signed", "sizeof", "static", "struct", "switch", "typedef", "union",
+    "unsigned", "void", "volatile", "while", "NULL",
+  ]),
+  cpp: new Set([
+    "alignas", "alignof", "auto", "bool", "break", "case", "catch", "char",
+    "class", "const", "constexpr", "continue", "decltype", "default",
+    "delete", "do", "double", "else", "enum", "explicit", "extern",
+    "false", "float", "for", "friend", "goto", "if", "inline", "int",
+    "long", "mutable", "namespace", "new", "noexcept", "nullptr",
+    "operator", "override", "private", "protected", "public", "register",
+    "return", "short", "signed", "sizeof", "static", "static_cast",
+    "struct", "switch", "template", "this", "throw", "true", "try",
+    "typedef", "typeid", "typename", "union", "unsigned", "using",
+    "virtual", "void", "volatile", "while",
+  ]),
+  ruby: new Set([
+    "alias", "and", "begin", "break", "case", "class", "def", "defined?",
+    "do", "else", "elsif", "end", "ensure", "false", "for", "if", "in",
+    "module", "next", "nil", "not", "or", "redo", "rescue", "retry",
+    "return", "self", "super", "then", "true", "undef", "unless", "until",
+    "when", "while", "yield", "require", "include", "extend", "attr_reader",
+    "attr_writer", "attr_accessor", "puts", "print",
+  ]),
+  yaml: new Set([
+    "true", "false", "null", "yes", "no", "on", "off",
+  ]),
+  json: new Set([
+    "true", "false", "null",
+  ]),
 };
 
 // Alias common names
@@ -67,6 +129,9 @@ KEYWORDS["js"] = KEYWORDS["javascript"];
 KEYWORDS["py"] = KEYWORDS["python"];
 KEYWORDS["sh"] = KEYWORDS["bash"];
 KEYWORDS["shell"] = KEYWORDS["bash"];
+KEYWORDS["c++"] = KEYWORDS["cpp"];
+KEYWORDS["rb"] = KEYWORDS["ruby"];
+KEYWORDS["yml"] = KEYWORDS["yaml"];
 
 // Comment prefix per language
 const COMMENT_PREFIX: Record<string, string> = {
@@ -75,6 +140,11 @@ const COMMENT_PREFIX: Record<string, string> = {
   sh: "#",
   py: "#",
   shell: "#",
+  ruby: "#",
+  rb: "#",
+  yaml: "#",
+  yml: "#",
+  sql: "--",
 };
 // Default is "//" for all others
 

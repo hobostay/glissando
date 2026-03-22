@@ -17,16 +17,8 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 THEME="${1:-claude-doc}"
 PRESET="${2:-default}"
-FONTS_DIR="$PROJECT_ROOT/src/themes/$THEME/fonts"
-
-if [ ! -d "$FONTS_DIR" ]; then
-  echo "Error: Theme font directory not found: $FONTS_DIR"
-  exit 1
-fi
 
 # --- Detect OS and set font install directory ---
 OS="$(uname -s)"
@@ -95,7 +87,6 @@ install_google_font() {
 install_jetbrains_mono() {
   local VERSION="2.304"
   local URL="https://github.com/JetBrains/JetBrainsMono/releases/download/v${VERSION}/JetBrainsMono-${VERSION}.zip"
-  local ZIP="$FONTS_DIR/JetBrainsMono.zip"
 
   if ls "$INSTALL_DIR"/JetBrainsMono* 2>/dev/null | grep -q .; then
     echo "[✓] JetBrains Mono — already installed"
@@ -103,10 +94,10 @@ install_jetbrains_mono() {
   fi
 
   echo "[↓] Downloading JetBrains Mono v${VERSION}..."
+  local TMP
+  TMP=$(mktemp -d)
+  local ZIP="$TMP/JetBrainsMono.zip"
   curl -fsSL "$URL" -o "$ZIP"
-
-  local TMP="$FONTS_DIR/jbmono_tmp"
-  mkdir -p "$TMP"
   unzip -q -o "$ZIP" -d "$TMP"
 
   local STATIC="$TMP/fonts/ttf"
@@ -117,38 +108,7 @@ install_jetbrains_mono() {
     echo "[!] JetBrains Mono — could not find TTF files"
   fi
 
-  rm -rf "$TMP" "$ZIP"
-}
-
-# --- Helper: install commercial fonts if present ---
-install_commercial_upgrades() {
-  echo ""
-
-  local TIEMPOS_FOUND=false
-  for ext in otf ttf OTF TTF; do
-    for f in "$FONTS_DIR"/TiemposHeadline*."$ext" "$FONTS_DIR"/Tiempos_Headline*."$ext"; do
-      if [ -f "$f" ]; then
-        cp "$f" "$INSTALL_DIR/"
-        TIEMPOS_FOUND=true
-      fi
-    done
-  done
-  if [ "$TIEMPOS_FOUND" = true ]; then
-    echo "[✓] Tiempos Headline — installed (premium upgrade)"
-  fi
-
-  local STYRENE_FOUND=false
-  for ext in otf ttf OTF TTF; do
-    for f in "$FONTS_DIR"/StyreneA*."$ext" "$FONTS_DIR"/Styrene_A*."$ext"; do
-      if [ -f "$f" ]; then
-        cp "$f" "$INSTALL_DIR/"
-        STYRENE_FOUND=true
-      fi
-    done
-  done
-  if [ "$STYRENE_FOUND" = true ]; then
-    echo "[✓] Styrene A — installed (premium upgrade)"
-  fi
+  rm -rf "$TMP"
 }
 
 # ===================================================================
@@ -161,7 +121,6 @@ case "$PRESET" in
     install_google_font "DM Serif Display" "DM+Serif+Display:wght@400" "DMSerifDisplay"
     install_google_font "Inter" "Inter:wght@400;500;600;700" "Inter"
     install_jetbrains_mono
-    install_commercial_upgrades
     ;;
 
   google-fonts)

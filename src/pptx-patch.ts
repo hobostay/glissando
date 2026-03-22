@@ -1,14 +1,13 @@
 /**
  * PPTX post-processing — font patching, connector injection, code block grouping.
  *
- * Operates on an already-written .pptx file: unzips → modifies XML → rezips.
+ * Operates on an already-written .pptx file: loads via JSZip → modifies XML
+ * entries in memory → writes back. No shell commands or temp directories.
  * Isolated from the Deck API so agents reading index.ts see only the public surface.
  */
 
-import { execSync } from "child_process";
-import { mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
+import { readFileSync, writeFileSync } from "fs";
+import JSZip from "jszip";
 import type { ConnectorDef } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -26,45 +25,47 @@ export interface PatchOptions {
  *   2. Inject native OOXML connectors (<p:cxnSp> + bezier arcs)
  *   3. Group code block shapes into <p:grpSp>
  */
-export function patchPptx(pptxPath: string, opts: PatchOptions): void {
+export async function patchPptx(pptxPath: string, opts: PatchOptions): Promise<void> {
   const { heading, sans } = opts.fonts;
 
-  const tmp = mkdtempSync(join(tmpdir(), "vibeslides-"));
-  try {
-    execSync(`unzip -q -o "${pptxPath}" -d "${tmp}"`);
+  const buf = readFileSync(pptxPath);
+  const zip = await JSZip.loadAsync(buf);
 
-    // --- Patch theme fonts ---
-    const themePath = join(tmp, "ppt", "theme", "theme1.xml");
-    let themeXml = readFileSync(themePath, "utf-8");
-    themeXml = themeXml.replace(
-      /(<a:majorFont>)([\s\S]*?)(<\/a:majorFont>)/,
-      `$1<a:latin typeface="${heading}"/><a:ea typeface=""/><a:cs typeface=""/>$3`
-    );
-    themeXml = themeXml.replace(
-      /(<a:minorFont>)([\s\S]*?)(<\/a:minorFont>)/,
-      `$1<a:latin typeface="${sans}"/><a:ea typeface=""/><a:cs typeface=""/>$3`
-    );
-    writeFileSync(themePath, themeXml, "utf-8");
-
-    // --- Patch slide master ---
-    const masterPath = join(tmp, "ppt", "slideMasters", "slideMaster1.xml");
-    let masterXml = readFileSync(masterPath, "utf-8");
-    masterXml = masterXml.replace(/typeface="Arial"/g, `typeface="${sans}"`);
-    writeFileSync(masterPath, masterXml, "utf-8");
-
-    // --- Inject OOXML connectors ---
-    if (opts.connectorDefs.length > 0) {
-      injectConnectors(tmp, opts.connectorDefs, sans);
-    }
-
-    // --- Group code block shapes (bg + label + rule + code → <p:grpSp>) ---
-    groupCodeBlocks(tmp);
-
-    // Repack
-    execSync(`cd "${tmp}" && zip -q -r "${pptxPath}" .`);
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
+  // Helper: read a zip entry as UTF-8 string
+  async function readEntry(path: string): Promise<string> {
+    const entry = zip.file(path);
+    if (!entry) throw new Error(`Missing PPTX entry: ${path}`);
+    return entry.async("string");
   }
+
+  // --- Patch theme fonts ---
+  let themeXml = await readEntry("ppt/theme/theme1.xml");
+  themeXml = themeXml.replace(
+    /(<a:majorFont>)([\s\S]*?)(<\/a:majorFont>)/,
+    `$1<a:latin typeface="${heading}"/><a:ea typeface=""/><a:cs typeface=""/>$3`
+  );
+  themeXml = themeXml.replace(
+    /(<a:minorFont>)([\s\S]*?)(<\/a:minorFont>)/,
+    `$1<a:latin typeface="${sans}"/><a:ea typeface=""/><a:cs typeface=""/>$3`
+  );
+  zip.file("ppt/theme/theme1.xml", themeXml);
+
+  // --- Patch slide master ---
+  let masterXml = await readEntry("ppt/slideMasters/slideMaster1.xml");
+  masterXml = masterXml.replace(/typeface="Arial"/g, `typeface="${sans}"`);
+  zip.file("ppt/slideMasters/slideMaster1.xml", masterXml);
+
+  // --- Inject OOXML connectors ---
+  if (opts.connectorDefs.length > 0) {
+    await injectConnectors(zip, opts.connectorDefs, sans);
+  }
+
+  // --- Group code block shapes (bg + label + rule + code → <p:grpSp>) ---
+  await groupCodeBlocks(zip);
+
+  // Write back
+  const out = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+  writeFileSync(pptxPath, out);
 }
 
 // ---------------------------------------------------------------------------
@@ -76,11 +77,11 @@ export function patchPptx(pptxPath: string, opts: PatchOptions): void {
  * Connectors reference shape IDs via objectName lookup,
  * so they move with shapes when dragged in Keynote/PowerPoint.
  */
-function injectConnectors(
-  tmpDir: string,
+async function injectConnectors(
+  zip: JSZip,
   connectorDefs: ConnectorDef[],
   sansFont: string,
-): void {
+): Promise<void> {
   // Group connectors by slide
   const bySlide = new Map<number, ConnectorDef[]>();
   for (const conn of connectorDefs) {
@@ -92,8 +93,10 @@ function injectConnectors(
   const EMU = 914400; // 1 inch = 914400 EMUs
 
   for (const [slideIdx, connectors] of bySlide) {
-    const slidePath = join(tmpDir, "ppt", "slides", `slide${slideIdx}.xml`);
-    let xml = readFileSync(slidePath, "utf-8");
+    const slidePath = `ppt/slides/slide${slideIdx}.xml`;
+    const entry = zip.file(slidePath);
+    if (!entry) continue;
+    let xml = await entry.async("string");
 
     // Build a map of objectName → shape ID
     const nameToId = new Map<string, number>();
@@ -165,7 +168,7 @@ function injectConnectors(
     // Inject before </p:spTree>
     if (injectedXmls.length > 0) {
       xml = xml.replace("</p:spTree>", injectedXmls.join("") + "</p:spTree>");
-      writeFileSync(slidePath, xml, "utf-8");
+      zip.file(slidePath, xml);
     }
   }
 }
@@ -338,13 +341,13 @@ function buildConnectorLabel(
  * Group code block shapes (bg, label, rule, code) into <p:grpSp>.
  * Shapes are tagged with objectName "cb-N-bg/label/rule/code".
  */
-function groupCodeBlocks(tmpDir: string): void {
-  const slidesDir = join(tmpDir, "ppt", "slides");
-  const slideFiles = readdirSync(slidesDir).filter((f) => /^slide\d+\.xml$/.test(f));
+async function groupCodeBlocks(zip: JSZip): Promise<void> {
+  const slideFiles = Object.keys(zip.files).filter((f) =>
+    /^ppt\/slides\/slide\d+\.xml$/.test(f)
+  );
 
-  for (const file of slideFiles) {
-    const slidePath = join(slidesDir, file);
-    let xml = readFileSync(slidePath, "utf-8");
+  for (const slidePath of slideFiles) {
+    let xml = await zip.file(slidePath)!.async("string");
 
     // Find all code block group IDs
     const groupIds = new Set<string>();
@@ -412,7 +415,7 @@ function groupCodeBlocks(tmpDir: string): void {
       xml = xml.replace("</p:spTree>", grpSpXml + "</p:spTree>");
     }
 
-    writeFileSync(slidePath, xml, "utf-8");
+    zip.file(slidePath, xml);
   }
 }
 

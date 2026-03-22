@@ -167,7 +167,7 @@ export class Deck {
   /** Write the deck to a .pptx file. */
   async save(path: string): Promise<void> {
     await this.pres.writeFile({ fileName: path });
-    patchPptx(path, {
+    await patchPptx(path, {
       fonts: this.theme.config.fonts,
       connectorDefs: this._connectorDefs,
     });
