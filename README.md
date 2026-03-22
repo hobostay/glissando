@@ -9,7 +9,7 @@
 
 <p align="center">
   <a href="https://github.com/concertoy/glissando/releases"><img src="https://img.shields.io/github/v/release/concertoy/glissando?include_prereleases&style=for-the-badge" alt="GitHub release"></a>
-  <a href="https://discord.gg/TODO"><img src="https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white&style=for-the-badge" alt="Discord"></a>
+  <a href="https://discord.gg/7nBpZ7HHME"><img src="https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white&style=for-the-badge" alt="Discord"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
 </p>
 
@@ -96,7 +96,7 @@ See [Releases](https://github.com/concertoy/glissando/releases) for changelogs a
 
 ## Community
 
-Questions, ideas, or show off your decks — join the [Discord](https://discord.gg/TODO).
+Questions, ideas, or show off your decks — join the [Discord](https://discord.gg/7nBpZ7HHME).
 
 ## License
 
